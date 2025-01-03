@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  agent:
+    container_name: agent
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.agent.env
+    ports:
+      - '7860:7860'
+      - '8000:8000'
+    # command: python main.py
+    # command: uvicorn search_api:app --reload --host 0.0.0.0 --port 8000
+    command: tail -f /dev/null
