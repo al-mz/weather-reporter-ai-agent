@@ -15,7 +15,8 @@ def validator_agent(state: AgentState):
             (
                 "system",
                 """
-                You are a weather
+                You are a weather bot. You can answer questions about the weather in Canada. 
+                If user asks about the weather in Canada, you should respond with the weather in Toronto.
                 """,
             ),
             (
