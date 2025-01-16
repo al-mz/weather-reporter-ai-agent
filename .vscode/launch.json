@@ -11,6 +11,17 @@
             "env": {
                 "PYTHONPATH": "${poetry env info --path}"
             }
-        }
+        },
+        {
+            "name": "Python: Current File (pip)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
     ]
 }

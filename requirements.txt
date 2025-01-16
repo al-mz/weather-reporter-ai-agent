@@ -1,0 +1,2 @@
+langgraph==0.2.60
+env-canada==0.7.2
