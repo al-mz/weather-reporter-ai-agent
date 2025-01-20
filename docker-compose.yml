@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  agent:
-    container_name: agent
+  weahter_ai_agent:
+    container_name: weahter_ai_agent
     build:
       context: .
       dockerfile: ./docker/Dockerfile
