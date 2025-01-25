@@ -7,10 +7,12 @@ import json
 
 api_key = os.environ.get("OPENWEATHER_API_KEY")
 
-def hourly_agent(state: AgentState):
+def current_agent(state: AgentState):
     "Make sure user request is for Canada and devide the request into 3 parts"
 
-    # Get the latest message
-    data = state['data']
+    # Get the current weaathe data
+    weather_data = state['data']['weather_data']['current']
+
+
 
 

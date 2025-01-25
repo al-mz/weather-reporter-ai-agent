@@ -9,6 +9,6 @@ def get_lat_lon(city_name):
         return None, None
 
 # Example usage
-city = "Toronto"
-latitude, longitude = get_lat_lon(city)
-print(f"Latitude: {latitude}, Longitude: {longitude}")
+# city = "Toronto"
+# latitude, longitude = get_lat_lon(city)
+# print(f"Latitude: {latitude}, Longitude: {longitude}")

@@ -5,15 +5,22 @@ import json
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
 from langchain_openai.chat_models import ChatOpenAI
+from langchain_groq import ChatGroq
+from tools.api import get_weather_data
 
 # Define the output model for the LLM
 class MasterAgentOutput(BaseModel):
-    decision: Literal["hourly", "daily", "historical"]
+    city: str = Field(description="The city for which the weather data is being requested")
+    decision: Literal["current", "hourly", "daily", "historical"]
     reasoning: str = Field(description="Reasoning for the decision")
 
 def make_decision(prompt: str):
     """Attempts to get a decision from the LLM with retry logic"""
-    llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(
+    # llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(
+    #     MasterAgentOutput,
+    #     method="function_calling",
+    # )
+    llm = ChatGroq(model="llama-3.3-70b-versatile").with_structured_output(
         MasterAgentOutput,
         method="function_calling",
     )
@@ -28,7 +35,7 @@ def make_decision(prompt: str):
                 # On final attempt, return a safe default
                 return None
 
-def validator_agent(state: AgentState):
+def master_agent(state: AgentState):
     "Make sure user request is for Canada and devide the request into 3 parts"
 
     # Get the latest message
@@ -41,7 +48,8 @@ def validator_agent(state: AgentState):
                 "system",
                 """
                 You are a weather reporter bot. 
-                Your responsibility is to detemine whether the user is asking for one of the hourly, daily, or historical weather data.
+                Your responsibility is to detemine whether the user is asking for one of the 
+                *current, *hourly, *daily, or *historical weather data.
                 """,
             ),
             (
@@ -49,9 +57,10 @@ def validator_agent(state: AgentState):
                 """
                 Question: {user_message}
 
-                Return a decision on whether the user is asking for hourly, daily, or historical weather data.
+                Return a decision on whether the user is asking for current, hourly, daily, or historical weather data.
                 in this format:
                 {{
+                    "city": "string",
                     "decision": "hourly",
                     "reasoning": "string"
                 }}
@@ -69,14 +78,21 @@ def validator_agent(state: AgentState):
     )
 
     # Get the decision from the LLM
-    decision = make_decision(prompt)
+    response = make_decision(prompt)
 
     # create master agent message
     message = HumanMessage(
-        content= json.dumps(decision.dict(), indent=2),
+        content= response.reasoning,
         name="master_agent",
     )
 
+    state['data']['user_request'] = response.dict()
+
+    # get weather data
+    weather_data = get_weather_data(response.city)
+    state['data']['weather_data'] = weather_data
+
     return {
         "messages": state["messages"] + [message],
+        "data": state["data"],
     }
