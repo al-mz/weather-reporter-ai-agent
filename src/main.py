@@ -1,10 +1,14 @@
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, StateGraph, START
 from graph.state import AgentState
-from agents.master import master_agent
-from agents.hourly import hourly_agent
-from agents.current import current_agent
+from agents.master import get_assistant_runnable, route_assistant_tool
+from agents.assistant import Assistant
 from langchain_core.messages import HumanMessage
 from typing_extensions import Literal
+from utility.utils import create_tool_node_with_fallback, save_workflow_graph
+import gradio as gr
+from langgraph.checkpoint.memory import MemorySaver
+
+from langchain_core.messages import ToolMessage
 
 import os, getpass
 
@@ -21,66 +25,90 @@ _set_env("OPENWEATHER_API_KEY")
 # # Load environment variables from .env file
 # load_dotenv()
 
-def start(state: AgentState):
-    """Initialize the workflow with the input message."""
-    return state
-
-def decision_weather(state: AgentState) -> Literal["current_agent"]:
-
-    # retreive the latest message
-    decision = state["data"]['user_request']['decision']
-
-    if decision == "current":
-        return "current_agent"
-    
-
 def create_workflow():
     """Create the workflow with selected analysts."""
 
-    # add nodes
+    # Build the workflow
+    assistant_runnable, tools = get_assistant_runnable()
+
     workflow = StateGraph(AgentState)
-    workflow.add_node("start_node", start)
-    workflow.add_node("master_agent", master_agent)
-    workflow.add_node("current_agent", current_agent)
-    workflow.add_node("hourly_agent", hourly_agent)
-
+    workflow.add_node("assistant", Assistant(assistant_runnable))
+    workflow.add_node("assistant_tools", create_tool_node_with_fallback(tools))
+    
     # add edges
-    workflow.add_edge("start_node", "master_agent")
-    workflow.add_conditional_edges("master_agent", decision_weather)
-    workflow.add_edge("master_agent", END)
+    workflow.add_edge(START, "assistant")
+    workflow.add_conditional_edges(
+        "assistant", route_assistant_tool, ["assistant_tools", END]
+    )
+    workflow.add_edge("assistant_tools", "assistant")
 
-    workflow.set_entry_point("start_node")
     return workflow
 
-def run_workflow(agent, input_message):
+def run_workflow(input_message):
     """Run the workflow with the input message."""
-    final_state = agent.invoke(
+
+    ai_response = agent.invoke(
         {
             "messages": [
                 HumanMessage(
                     content=input_message,
                 )
             ],
-            # "data": {
-            #     "tickers": tickers,
-            #     "portfolio": portfolio,
-            #     "start_date": start_date,
-            #     "end_date": end_date,
-            #     "analyst_signals": {},
-            # },
-            # "metadata": {
-            #     "show_reasoning": show_reasoning,
-            # },
         },
+        config,
     )
 
-    return final_state["messages"][-1].content
+    return ai_response
+
+def chatbot_interface(user_input, history):
+    ai_response = run_workflow(user_input)
+
+    # prepare the response
+    # response = json.loads(ai_response["messages"][-1].content)
+
+    # # get question
+    # text = response.get("text")
+
+    return ai_response["messages"][-1].content
+
+def chat_with_product_data():
+    with gr.Blocks(title="AI Shop Assistant", theme=gr.themes.Soft(), fill_width=True) as demo:
+        chatbot = gr.Chatbot(
+            value=[
+                [
+                    None,
+                    f"Hi, I'm your weather ai assistant. Ask me about the weather in any city!",
+                ]
+            ],
+            placeholder="**Ask me about products you want to buy!**",
+            height=800,
+            # label=f"{self.shop_config['settings']['name']} ShopAI Assistant",
+            # avatar_images=("/app/assets/user-avatar.png", "/app/assets/beisat-logo.png"),
+        )
+        gr.ChatInterface(
+            fn=chatbot_interface,
+            chatbot=chatbot,
+        )
+
+    demo.launch()
 
 if __name__ == "__main__":
 
+    # # Create the workflow with selected analysts
+    # workflow = create_workflow()
+    # agent = workflow.compile()
+
+    # # Save the workflow graph
+    # save_workflow_graph(agent, "/app/workflow_graph.png")
+
+    # # Run the workflow with the input message
+    # run_workflow(agent, "How's the weather in Toronto right now?")
+
+    memory = MemorySaver()
+    config = {"configurable": {"thread_id": "2"}}
+
     # Create the workflow with selected analysts
     workflow = create_workflow()
-    agent = workflow.compile()
+    agent = workflow.compile(checkpointer=memory)
 
-    # Run the workflow with the input message
-    run_workflow(agent, "How's the weather in Toronto right now?")
+    chat_with_product_data()

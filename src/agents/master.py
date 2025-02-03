@@ -1,98 +1,53 @@
-from langchain_core.messages import HumanMessage
-from graph.state import AgentState, show_agent_reasoning
+from langchain_core.messages import HumanMessage, AIMessage
+from graph.state import AgentState
 from langchain_core.prompts import ChatPromptTemplate
 import json
 from pydantic import BaseModel, Field
 from typing_extensions import Literal
 from langchain_openai.chat_models import ChatOpenAI
 from langchain_groq import ChatGroq
-from tools.api import get_weather_data
+from tools.api import get_timestamp_weather_data
+from utility.weather import get_historical_dates
+from datetime import datetime
+from tools.api import get_current_and_forecast_weather_data, get_timestamp_weather_data
+from langgraph.prebuilt import tools_condition
+from langgraph.graph import END
 
-# Define the output model for the LLM
-class MasterAgentOutput(BaseModel):
-    city: str = Field(description="The city for which the weather data is being requested")
-    decision: Literal["current", "hourly", "daily", "historical"]
-    reasoning: str = Field(description="Reasoning for the decision")
+def get_assistant_runnable():
 
-def make_decision(prompt: str):
-    """Attempts to get a decision from the LLM with retry logic"""
-    # llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(
-    #     MasterAgentOutput,
-    #     method="function_calling",
-    # )
-    llm = ChatGroq(model="llama-3.3-70b-versatile").with_structured_output(
-        MasterAgentOutput,
-        method="function_calling",
-    )
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            result = llm.invoke(prompt)
-            return result
-        except Exception as e:
-            print(f"Error - retry {attempt + 1}/{max_retries}")
-            if attempt == max_retries - 1:
-                # On final attempt, return a safe default
-                return None
+    llm = ChatOpenAI(model="gpt-4o")
 
-def master_agent(state: AgentState):
-    "Make sure user request is for Canada and devide the request into 3 parts"
-
-    # Get the latest message
-    message = state['messages'][-1]
-    
-    # Create the prompt template
-    template = ChatPromptTemplate.from_messages(
+    prompt_template = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 """
-                You are a weather reporter bot. 
-                Your responsibility is to detemine whether the user is asking for one of the 
-                *current, *hourly, *daily, or *historical weather data.
-                """,
-            ),
-            (
-                "human",
+                You are WeatherReporter, a friendly and knowledgeable AI weather reporter. 
+                Your primary role is to help users understand current weather conditions, forecasts, 
+                and any weather-related information they need. 
+                You have access to external weather tools and APIs that provide up-to-date data, 
+                and you should use these tools when answering questions.
+
+                current date and time: {time}
                 """
-                Question: {user_message}
-
-                Return a decision on whether the user is asking for current, hourly, daily, or historical weather data.
-                in this format:
-                {{
-                    "city": "string",
-                    "decision": "hourly",
-                    "reasoning": "string"
-                }}
-                Only return the one that is most likely.
-                """,
             ),
+            ("placeholder", "{messages}"),
         ]
-    )
+    ).partial(time=datetime.now)
 
-    # invoke template
-    prompt = template.invoke(
-        {
-            "user_message": message.content,
-        }
-    )
+    tools = [
+        get_current_and_forecast_weather_data,
+        get_timestamp_weather_data,
+    ]
 
-    # Get the decision from the LLM
-    response = make_decision(prompt)
+    assistant_runnable = prompt_template | llm.bind_tools(tools)
 
-    # create master agent message
-    message = HumanMessage(
-        content= response.reasoning,
-        name="master_agent",
-    )
+    return assistant_runnable, tools
 
-    state['data']['user_request'] = response.dict()
-
-    # get weather data
-    weather_data = get_weather_data(response.city)
-    state['data']['weather_data'] = weather_data
-
-    return {
-        "messages": state["messages"] + [message],
-        "data": state["data"],
-    }
+def route_assistant_tool(
+    state: AgentState,
+):
+    route = tools_condition(state)
+    if route == END:
+        return END
+    return "assistant_tools"
