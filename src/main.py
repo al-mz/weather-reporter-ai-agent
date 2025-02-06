@@ -54,12 +54,6 @@ def run_workflow(input_message):
 def chatbot_interface(user_input, history):
     ai_response = run_workflow(user_input)
 
-    # prepare the response
-    # response = json.loads(ai_response["messages"][-1].content)
-
-    # # get question
-    # text = response.get("text")
-
     return ai_response["messages"][-1].content
 
 def chat_with_product_data():
@@ -85,16 +79,7 @@ def chat_with_product_data():
 
 if __name__ == "__main__":
 
-    # # Create the workflow with selected analysts
-    # workflow = create_workflow()
-    # agent = workflow.compile()
-
-    # # Save the workflow graph
-    # save_workflow_graph(agent, "/app/workflow_graph.png")
-
-    # # Run the workflow with the input message
-    # run_workflow(agent, "How's the weather in Toronto right now?")
-
+    # Create a memory saver
     memory = MemorySaver()
     config = {"configurable": {"thread_id": "2"}}
 
@@ -102,4 +87,5 @@ if __name__ == "__main__":
     workflow = create_workflow()
     agent = workflow.compile(checkpointer=memory)
 
+    # chat with the assistant
     chat_with_product_data()
