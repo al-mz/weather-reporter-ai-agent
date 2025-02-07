@@ -17,7 +17,6 @@ def _set_env(var: str):
 
 
 _set_env("OPENAI_API_KEY")
-_set_env("GROQ_API_KEY")
 _set_env("OPENWEATHER_API_KEY")
 
 
