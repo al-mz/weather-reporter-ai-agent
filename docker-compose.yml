@@ -9,10 +9,8 @@ services:
     volumes:
       - .:/app:z
     env_file:
-      - ./.envs/.agent.env
+      - ./.envs/.env
     ports:
       - '7860:7860'
       - '8000:8000'
-    # command: python main.py
-    # command: uvicorn search_api:app --reload --host 0.0.0.0 --port 8000
-    command: tail -f /dev/null
+    command: python ./src/main.py
