@@ -2,7 +2,7 @@
 
 An AI-powered weather reporting agent that uses the ReAct (Reasoning + Acting) framework to provide interactive weather information. The agent understands natural language queries and provides contextual weather data through conversation.
 
-![weather-ai-reporter](./assets/weather-ai-report.gif)
+![weather-ai-reporter](./assets/weather-ai-reporter.gif)
 
 ## Features
 
