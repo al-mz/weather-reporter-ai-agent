@@ -6,7 +6,7 @@ An AI-powered weather reporting agent that uses the ReAct (Reasoning + Acting) f
 
 ## Features
 
-- Natural language understanding for weather queries
+- Built with LangGraph for stateful, multi-actor workflow orchestration
 - Real-time weather data from OpenWeatherMap API
 - Contextual conversation handling
 - Docker containerization for easy deployment
